@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tanti Auguri Daniele! 🎂</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Courier+Prime:wght@400;700&family=Permanent+Marker&display=swap');
+
+        :root {
+            --kraft-bg: #d7ccc8;
+            --kraft-paper: #e6d5bc;
+            --border-green: #385e38;
+        }
+
+        body {
+            background-color: var(--kraft-bg);
+            background-image: 
+                radial-gradient(hsla(30, 20%, 20%, 0.1) 1px, transparent 0),
+                radial-gradient(hsla(30, 20%, 10%, 0.05) 1px, transparent 0);
+            background-size: 24px 24px, 12px 12px;
+            background-position: 0 0, 6px 6px;
+            font-family: 'Courier Prime', monospace;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .font-handwriting { font-family: 'Caveat', cursive; }
+        .font-marker { font-family: 'Permanent Marker', cursive; }
+
+        .washi-tape {
+            background-color: rgba(255, 255, 255, 0.65);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+            backdrop-filter: blur(1px);
+            border-left: 2px dashed rgba(0,0,0,0.15);
+            border-right: 2px dashed rgba(0,0,0,0.15);
+        }
+
+        .perspective-container {
+            perspective: 2000px;
+        }
+
+        .card-cover-state {
+            width: 380px;
+            max-width: 88vw;
+            cursor: pointer;
+            box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.35);
+            transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.5s ease;
+        }
+
+        .card-cover-state:hover {
+            transform: translateY(-6px) rotate(-1deg);
+            box-shadow: 0 25px 40px -8px rgba(0, 0, 0, 0.4);
+        }
+
+        .spread-container {
+            display: none;
+            opacity: 0;
+            transform: scale(0.92) rotateX(4deg);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .spread-container.active {
+            display: flex;
+            opacity: 1;
+            transform: scale(1) rotateX(0deg);
+        }
+
+        /* Letter Lift Animation */
+        .letter-popout {
+            transition: transform 0.6s cubic-bezier(0.34, 1.3, 0.64, 1), box-shadow 0.4s ease, z-index 0.1s;
+        }
+
+        .letter-popout.extracted {
+            transform: translateY(-44%) scale(1.22);
+            z-index: 50;
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Candle Flames */
+        .flame {
+            transform-origin: bottom center;
+            transition: transform 0.1s ease-out, opacity 0.3s ease;
+            filter: drop-shadow(0 0 8px rgba(255, 170, 0, 0.9));
+        }
+
+        .flame.flicker {
+            animation: flicker 0.15s infinite alternate ease-in-out;
+        }
+
+        @keyframes flicker {
+            0% { transform: scale(1) rotate(-3deg); opacity: 0.95; }
+            100% { transform: scale(1.08, 1.05) rotate(3deg); opacity: 1; }
+        }
+
+        .flame.out {
+            opacity: 0 !important;
+            transform: scale(0.1) translateY(-12px) !important;
+        }
+
+        .smoke-particle {
+            position: absolute;
+            background: rgba(220, 220, 220, 0.7);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: rise 1.2s ease-out forwards;
+        }
+
+        @keyframes rise {
+            0% { opacity: 0.8; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-45px) scale(3.2); }
+        }
+
+        .paper-texture {
+            background-color: #f7f3eb;
+            box-shadow: inset 0 0 45px rgba(139, 115, 85, 0.18);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start p-4 md:p-8 pt-10 md:pt-14">
+
+    <!-- Header Navigation -->
+    <header class="w-full max-w-4xl flex items-center justify-between mb-8 z-20">
+        <div class="flex items-center space-x-2">
+            <span class="text-2xl">✂️</span>
+            <h1 class="text-xl md:text-2xl font-bold font-marker text-amber-950 tracking-wide">Daniele's Birthday Scrapbook</h1>
+        </div>
+        
+        <button id="backToCoverBtn" class="hidden items-center space-x-2 bg-amber-900 hover:bg-amber-950 text-amber-50 px-4 py-2 rounded-full font-bold shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0">
+            <span>← Back to Cover</span>
+        </button>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="w-full max-w-5xl flex flex-col items-center justify-center perspective-container my-auto">
+
+        <!-- CLOSED CARD VIEW (Cover Page) -->
+        <div id="closedCover" class="card-cover-state relative rounded-lg p-3 bg-stone-100 border-8 border-stone-200 mt-4 md:mt-8">
+            <div class="washi-tape absolute -top-4 left-1/2 -translate-x-1/2 w-36 h-8 z-10 transform -rotate-2"></div>
+            <div class="washi-tape absolute -bottom-3 right-8 w-28 h-7 z-10 transform rotate-3"></div>
+
+            <div class="relative overflow-hidden rounded border border-stone-300 bg-white shadow-inner">
+                <img id="imgCover" src="image.png" alt="Cover Daniele" class="w-full h-auto object-cover block">
+                
+                <div class="absolute inset-x-0 bottom-6 flex justify-center">
+                    <span class="bg-amber-950/85 backdrop-blur-sm text-amber-100 text-xs md:text-sm font-bold px-5 py-2.5 rounded-full shadow-xl border border-amber-300/40 animate-bounce">
+                        ✨ Tap cover to open ✨
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- OPEN SPREAD VIEW (Two-Page Spread) -->
+        <div id="openSpread" class="spread-container w-full max-w-5xl flex-col md:flex-row items-stretch justify-center gap-4 md:gap-0 rounded-2xl shadow-2xl relative my-4">
+            
+            <!-- Hinge Divider Effect -->
+            <div class="hidden md:block absolute left-1/2 top-0 bottom-0 w-8 -ml-4 z-30 pointer-events-none bg-gradient-to-r from-black/25 via-black/5 to-black/25 rounded"></div>
+
+            <!-- LEFT PAGE: ENVELOPE & LETTER -->
+            <div class="w-full md:w-1/2 paper-texture p-4 md:p-6 rounded-t-2xl md:rounded-tr-none md:rounded-l-2xl border-4 border-amber-900/20 relative flex flex-col items-center justify-between min-h-[540px] overflow-hidden">
+                
+                <div class="w-full flex justify-between items-center mb-2 z-10">
+                    <span class="text-xs font-bold text-amber-900 bg-amber-200/70 px-2.5 py-1 rounded">PAGE 01 • LETTER</span>
+                    <span class="text-xs text-amber-800 italic font-handwriting text-lg">Click letter to open ✉️</span>
+                </div>
+
+                <div class="relative w-full max-w-md flex-1 flex items-center justify-center my-2">
+                    <div class="relative w-full max-w-[340px] aspect-[3/4] flex items-center justify-center">
+                        
+                        <!-- Envelope Image -->
+                        <img id="imgEnvelope" src="image_2.png" alt="Envelope" class="absolute inset-0 w-full h-full object-contain z-10 pointer-events-none drop-shadow-md">
+
+                        <!-- Tucked / Extracted Letter -->
+                        <div id="letterWrapper" class="letter-popout absolute top-[12%] w-[78%] h-[72%] cursor-pointer z-20 rounded shadow-md border border-stone-200 overflow-hidden bg-white">
+                            <img id="imgLetter" src="image_3.png" alt="Letter Text" class="w-full h-full object-cover">
+                            
+                            <div id="letterHint" class="absolute inset-0 bg-black/10 hover:bg-transparent transition flex items-end justify-center pb-3">
+                                <span class="bg-white/90 text-stone-900 text-xs font-bold px-3 py-1 rounded-full shadow">Tap to pull out</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <p class="text-xs text-center text-amber-900/80 italic z-10">Tap the letter to lift & read. Tap again to return to envelope.</p>
+            </div>
+
+            <!-- RIGHT PAGE: CAKE & CANDLES -->
+            <div class="w-full md:w-1/2 paper-texture p-4 md:p-6 rounded-b-2xl md:rounded-bl-none md:rounded-r-2xl border-4 border-amber-900/20 relative flex flex-col items-center justify-between min-h-[540px] overflow-hidden">
+                
+                <div class="w-full flex justify-between items-center mb-2 z-10">
+                    <span class="text-xs font-bold text-amber-900 bg-amber-200/70 px-2.5 py-1 rounded">PAGE 02 • CANDLES</span>
+                    <span class="text-xs text-amber-800 italic font-handwriting text-lg">Blow out the candles 🎂</span>
+                </div>
+
+                <!-- Cake Graphic with Cutout Flames -->
+                <div class="relative w-full max-w-md flex-1 flex items-center justify-center my-2">
+                    <div id="cakeContainer" class="relative w-full max-w-[340px] aspect-[3/4] flex items-center justify-center">
+                        
+                        <!-- Cake Page Image -->
+                        <img id="imgCake" src="image_4.png" alt="Cake Page" class="absolute inset-0 w-full h-full object-contain drop-shadow-md">
+
+                        <!-- Cutout SVG Flame 1 (Left Candle) -->
+                        <div id="flame1" class="flame flicker absolute top-[33.2%] left-[26.2%] w-[7.5%] h-[9%] pointer-events-none z-20">
+                            <svg viewBox="0 0 50 80" class="w-full h-full">
+                                <path d="M 25 0 C 40 25 48 45 42 62 C 36 78 14 78 8 62 C 2 45 10 25 25 0 Z" fill="#ff9900" />
+                                <path d="M 25 15 C 33 32 38 48 33 60 C 28 70 18 70 13 60 C 8 48 17 32 25 15 Z" fill="#ffcc00" />
+                                <path d="M 25 30 C 29 40 32 50 29 58 C 26 64 20 64 17 58 C 14 50 21 40 25 30 Z" fill="#ffffff" />
+                            </svg>
+                        </div>
+
+                        <!-- Cutout SVG Flame 2 (Center Candle) -->
+                        <div id="flame2" class="flame flicker absolute top-[31.8%] left-[48.2%] w-[7.5%] h-[9%] pointer-events-none z-20">
+                            <svg viewBox="0 0 50 80" class="w-full h-full">
+                                <path d="M 25 0 C 40 25 48 45 42 62 C 36 78 14 78 8 62 C 2 45 10 25 25 0 Z" fill="#ff9900" />
+                                <path d="M 25 15 C 33 32 38 48 33 60 C 28 70 18 70 13 60 C 8 48 17 32 25 15 Z" fill="#ffcc00" />
+                                <path d="M 25 30 C 29 40 32 50 29 58 C 26 64 20 64 17 58 C 14 50 21 40 25 30 Z" fill="#ffffff" />
+                            </svg>
+                        </div>
+
+                        <!-- Cutout SVG Flame 3 (Right Candle) -->
+                        <div id="flame3" class="flame flicker absolute top-[33.0%] left-[70.2%] w-[7.5%] h-[9%] pointer-events-none z-20">
+                            <svg viewBox="0 0 50 80" class="w-full h-full">
+                                <path d="M 25 0 C 40 25 48 45 42 62 C 36 78 14 78 8 62 C 2 45 10 25 25 0 Z" fill="#ff9900" />
+                                <path d="M 25 15 C 33 32 38 48 33 60 C 28 70 18 70 13 60 C 8 48 17 32 25 15 Z" fill="#ffcc00" />
+                                <path d="M 25 30 C 29 40 32 50 29 58 C 26 64 20 64 17 58 C 14 50 21 40 25 30 Z" fill="#ffffff" />
+                            </svg>
+                        </div>
+
+                        <!-- Wish Banner Pop-up -->
+                        <div id="wishBanner" class="hidden absolute inset-0 bg-stone-900/60 backdrop-blur-xs rounded-lg flex-col items-center justify-center p-4 text-center z-30 animate-fade-in">
+                            <div class="bg-amber-100 p-6 rounded-2xl shadow-2xl border-4 border-amber-900 transform rotate-1 max-w-[280px]">
+                                <h3 class="text-2xl font-bold font-marker text-amber-950 mb-1">🎉 Make a wish, Daniele!</h3>
+                                <p class="text-xl font-handwriting font-bold text-green-800 mb-4">Tanti Auguri Amore! ❤️</p>
+                                <button id="relightBtn" class="bg-green-700 hover:bg-green-800 text-white font-bold text-sm px-4 py-2 rounded-full shadow hover:shadow-lg transition transform hover:scale-105">
+                                    🔥 Relight Candles
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Mic & Blow Control Panel -->
+                <div class="w-full flex flex-col items-center gap-2 z-10 bg-amber-100/80 p-3 rounded-xl border border-amber-900/20">
+                    <div class="w-full flex items-center justify-between text-xs text-amber-950 font-bold">
+                        <span id="micStatusText">🎙️ Mic: Click to enable</span>
+                        <button id="enableMicBtn" class="underline text-amber-900 hover:text-amber-950 text-xs">Enable Mic</button>
+                    </div>
+
+                    <div class="w-full bg-stone-300 h-2.5 rounded-full overflow-hidden border border-stone-400">
+                        <div id="micLevelBar" class="bg-emerald-600 h-full w-0 transition-all duration-75"></div>
+                    </div>
+
+                    <div class="w-full flex items-center justify-between gap-2 mt-1">
+                        <button id="holdBlowBtn" class="flex-1 bg-amber-800 hover:bg-amber-900 active:bg-amber-950 text-white font-bold text-xs py-2 px-3 rounded-lg shadow transition flex items-center justify-center gap-1 select-none">
+                            <span>💨 Hold to Blow</span>
+                            <span class="text-[10px] opacity-75">(or Spacebar)</span>
+                        </button>
+                    </div>
+
+                    <p class="text-[10px] text-amber-900/80 text-center leading-tight">
+                        🔒 <em>Microphone blowing requires HTTPS hosting. Use "Hold to Blow" or spacebar when testing locally.</em>
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const closedCover = document.getElementById('closedCover');
+            const openSpread = document.getElementById('openSpread');
+            const backToCoverBtn = document.getElementById('backToCoverBtn');
+            const letterWrapper = document.getElementById('letterWrapper');
+            const letterHint = document.getElementById('letterHint');
+
+            const flames = [
+                document.getElementById('flame1'),
+                document.getElementById('flame2'),
+                document.getElementById('flame3')
+            ];
+
+            const cakeContainer = document.getElementById('cakeContainer');
+            const wishBanner = document.getElementById('wishBanner');
+            const relightBtn = document.getElementById('relightBtn');
+            const holdBlowBtn = document.getElementById('holdBlowBtn');
+            const micStatusText = document.getElementById('micStatusText');
+            const enableMicBtn = document.getElementById('enableMicBtn');
+            const micLevelBar = document.getElementById('micLevelBar');
+
+            let isCardOpen = false;
+            let isLetterOpen = false;
+            let candlesBlown = false;
+            let blowingProgress = 0;
+            let isBlowingManual = false;
+            let audioCtx = null;
+            let analyser = null;
+            let micStream = null;
+            let isMicActive = false;
+            let lastFrameTime = performance.now();
+
+            // Toggle Card Cover / Spread View
+            closedCover.addEventListener('click', () => {
+                if (!isCardOpen) {
+                    isCardOpen = true;
+                    closedCover.style.display = 'none';
+                    openSpread.classList.add('active');
+                    backToCoverBtn.classList.remove('hidden');
+                    backToCoverBtn.classList.add('flex');
+                }
+            });
+
+            backToCoverBtn.addEventListener('click', () => {
+                if (isCardOpen) {
+                    isCardOpen = false;
+                    openSpread.classList.remove('active');
+                    setTimeout(() => { closedCover.style.display = 'block'; }, 200);
+                    backToCoverBtn.classList.add('hidden');
+                    backToCoverBtn.classList.remove('flex');
+                    if (isLetterOpen) toggleLetter();
+                }
+            });
+
+            // Toggle Letter Extracted View
+            function toggleLetter() {
+                isLetterOpen = !isLetterOpen;
+                if (isLetterOpen) {
+                    letterWrapper.classList.add('extracted');
+                    if (letterHint) letterHint.style.display = 'none';
+                } else {
+                    letterWrapper.classList.remove('extracted');
+                    if (letterHint) letterHint.style.display = 'flex';
+                }
+            }
+
+            letterWrapper.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleLetter();
+            });
+
+            // Blow Controls (Hold button + Spacebar)
+            holdBlowBtn.addEventListener('mousedown', () => { isBlowingManual = true; });
+            holdBlowBtn.addEventListener('mouseup', () => { isBlowingManual = false; });
+            holdBlowBtn.addEventListener('mouseleave', () => { isBlowingManual = false; });
+            holdBlowBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isBlowingManual = true; });
+            holdBlowBtn.addEventListener('touchend', () => { isBlowingManual = false; });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && isCardOpen && !candlesBlown) {
+                    e.preventDefault();
+                    isBlowingManual = true;
+                }
+            });
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'Space') isBlowingManual = false;
+            });
+
+            // Web Audio API Mic Initialization
+            enableMicBtn.addEventListener('click', initMicrophone);
+
+            async function initMicrophone() {
+                if (isMicActive) return;
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    const source = audioCtx.createMediaStreamSource(micStream);
+                    analyser = audioCtx.createAnalyser();
+                    analyser.fftSize = 256;
+                    source.connect(analyser);
+
+                    isMicActive = true;
+                    micStatusText.textContent = "🎙️ Mic Active! Blow into mic";
+                    enableMicBtn.style.display = "none";
+                } catch (err) {
+                    console.warn("Microphone access unavailable or unhosted:", err);
+                    micStatusText.textContent = "🎙️ Mic blocked (Use Hold button)";
+                }
+            }
+
+            // Animation and Audio Analysis Loop
+            function processBlowingFrame(now) {
+                const dt = (now - lastFrameTime) / 1000;
+                lastFrameTime = now;
+                let currentAudioVolume = 0;
+
+                if (isMicActive && analyser) {
+                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                    currentAudioVolume = sum / dataArray.length;
+                }
+
+                const activeVolume = isBlowingManual ? 180 : currentAudioVolume;
+                const levelPercentage = Math.min(100, Math.max(0, (activeVolume / 120) * 100));
+                micLevelBar.style.width = `${levelPercentage}%`;
+
+                const isBlowing = isBlowingManual || activeVolume > 45;
+
+                if (!candlesBlown && isCardOpen) {
+                    if (isBlowing) {
+                        blowingProgress += dt;
+                        const bendAngle = Math.min(36, 10 + (activeVolume / 5));
+                        const skewX = Math.min(16, activeVolume / 10);
+
+                        flames.forEach((flame, idx) => {
+                            const offset = (idx - 1) * 6;
+                            flame.style.transform = `rotate(${bendAngle + offset}deg) skewX(${skewX}deg) scale(0.9, 1.1)`;
+                        });
+
+                        if (blowingProgress >= 0.5) extinguishCandles();
+                    } else {
+                        blowingProgress = Math.max(0, blowingProgress - dt * 2);
+                        flames.forEach(flame => { flame.style.transform = ''; });
+                    }
+                }
+
+                requestAnimationFrame(processBlowingFrame);
+            }
+
+            requestAnimationFrame(processBlowingFrame);
+
+            function extinguishCandles() {
+                candlesBlown = true;
+                flames.forEach(flame => {
+                    flame.classList.add('out');
+                    createSmokePuff(flame);
+                });
+
+                setTimeout(() => {
+                    wishBanner.classList.remove('hidden');
+                    wishBanner.classList.add('flex');
+                    triggerConfetti();
+                }, 400);
+            }
+
+            function createSmokePuff(flameEl) {
+                const rect = flameEl.getBoundingClientRect();
+                const containerRect = cakeContainer.getBoundingClientRect();
+
+                for (let i = 0; i < 4; i++) {
+                    const smoke = document.createElement('div');
+                    smoke.className = 'smoke-particle';
+                    const size = Math.random() * 12 + 10;
+                    smoke.style.width = `${size}px`;
+                    smoke.style.height = `${size}px`;
+                    
+                    const left = (rect.left - containerRect.left) + (rect.width / 2) + (Math.random() * 16 - 8);
+                    const top = (rect.top - containerRect.top) + (Math.random() * 10);
+                    
+                    smoke.style.left = `${left}px`;
+                    smoke.style.top = `${top}px`;
+                    cakeContainer.appendChild(smoke);
+                    setTimeout(() => smoke.remove(), 1200);
+                }
+            }
+
+            function triggerConfetti() {
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 70, spread: 65, origin: { x: 0.3, y: 0.6 } });
+                    confetti({ particleCount: 70, spread: 65, origin: { x: 0.7, y: 0.6 } });
+                }
+            }
+
+            relightBtn.addEventListener('click', () => {
+                candlesBlown = false;
+                blowingProgress = 0;
+                wishBanner.classList.add('hidden');
+                wishBanner.classList.remove('flex');
+                flames.forEach(flame => {
+                    flame.classList.remove('out');
+                    flame.style.transform = '';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
